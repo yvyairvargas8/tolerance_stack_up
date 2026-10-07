@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tolerance Stack-Up Calculator V7</title>
+<title>Tolerance Stack-Up Calculator</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#101722;color:#e6edf7}
 header{background:#0a0f18;color:#fff;padding:22px max(18px,calc((100% - 1180px)/2));display:flex;justify-content:space-between;align-items:center}
@@ -30,7 +30,7 @@ footer{text-align:center;padding:20px;color:#7f8da1;font-size:12px}
 <div class="title"><div><h2>Stack dimensions</h2><p class="sub">Enter each contributing dimension and its direction.</p></div>
 <div><button id="addBtn" class="primary" type="button">+ Add dimension</button> <button id="resetBtn" class="secondary" type="button">Reset</button></div></div>
 <div class="wrap"><table><thead><tr><th>#</th><th>Description</th><th>Nominal</th><th>+ Tol.</th><th>− Tol.</th><th>Direction</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
-<div class="hint">Positive direction adds to the stack. Negative direction subtracts from it.</div>
+<div class="hint">Positive direction adds to the gap Negative direction subtracts from it.</div>
 </section>
 
 <section class="grid2">
