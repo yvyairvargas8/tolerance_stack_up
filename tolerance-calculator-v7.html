@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tolerance Stack-Up Calculator V7</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#101722;color:#e6edf7}
+header{background:#0a0f18;color:#fff;padding:22px max(18px,calc((100% - 1180px)/2));display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;font-size:24px}header p{margin:5px 0 0;color:#bcc6d5;font-size:13px}.badge{border:1px solid #68758b;border-radius:20px;padding:7px 12px;font-size:12px}
+main{max-width:1180px;margin:25px auto;padding:0 18px}.card{background:#182230;border:1px solid #2d3a4b;border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.title{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:16px}h2{font-size:18px;margin:0 0 4px}.sub{font-size:13px;color:#9aa8bb;margin:0}
+button{border:0;border-radius:8px;padding:10px 15px;font-weight:700;cursor:pointer}.primary{background:#2563eb;color:#fff}.secondary{background:#2a3646;color:#e6edf7}
+table{width:100%;border-collapse:collapse;min-width:760px}.wrap{overflow:auto}th{font-size:12px;color:#aeb9c9;background:#202c3a;text-align:left;padding:10px;border-bottom:1px solid #dde3eb}td{padding:8px;border-bottom:1px solid #2b3746}
+input,select{width:100%;padding:9px;border:1px solid #435166;border-radius:7px;background:#111a26;color:#e6edf7;font-size:14px}.remove{background:#2a3646;color:#e6edf7;padding:7px 10px}.hint{font-size:12px;color:#8e9caf;margin-top:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.method-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.method{display:flex;gap:10px;border:1px solid #3a4759;border-radius:9px;padding:13px;cursor:pointer}.method.active{border-color:#4f8cff;background:#172d4b}.method input{width:auto}.method small{display:block;color:#9aa8bb;margin-top:4px}
+.target-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}label{font-size:12px;color:#aeb9c9}label input{margin-top:5px}
+.results{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}.result{background:#182230;border:1px solid #2d3a4b;border-radius:12px;padding:15px}.result span{display:block;color:#9aa8bb;font-size:12px;margin-bottom:7px}.result strong{font-size:20px}
+.status.pass{background:#123422;border-color:#2e8b57}.status.fail{background:#3a1d22;border-color:#b94a58}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.metric{padding:14px;background:#121c29;border-radius:9px;border:1px solid #2d3a4b}.metric span{font-size:12px;color:#9aa8bb;display:block;margin-bottom:5px}.metric strong{font-size:18px}
+canvas{width:100%;height:400px;display:block}.contribution-row{display:grid;grid-template-columns:180px 1fr 75px;gap:12px;align-items:center;margin:9px 0;font-size:13px}.bar{height:10px;background:#2a3646;border-radius:999px;overflow:hidden}.bar div{height:100%;background:#2563eb;border-radius:999px}
+footer{text-align:center;padding:20px;color:#7f8da1;font-size:12px}
+@media(max-width:900px){.results{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.metrics{grid-template-columns:1fr}.method-grid,.target-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div><h1>Tolerance Stack-Up Calculator</h1><p>1D mechanical tolerance analysis</p></div><div class="badge">V7 • Free</div></header>
+<main>
+<section class="card">
+<div class="title"><div><h2>Stack dimensions</h2><p class="sub">Enter each contributing dimension and its direction.</p></div>
+<div><button id="addBtn" class="primary" type="button">+ Add dimension</button> <button id="resetBtn" class="secondary" type="button">Reset</button></div></div>
+<div class="wrap"><table><thead><tr><th>#</th><th>Description</th><th>Nominal</th><th>+ Tol.</th><th>− Tol.</th><th>Direction</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
+<div class="hint">Positive direction adds to the stack. Negative direction subtracts from it.</div>
+</section>
+
+<section class="grid2">
+<section class="card"><div class="title"><div><h2>Tolerance contribution</h2><p class="sub">RSS contribution of each dimension.</p></div></div><div id="contributions"></div></section>
+<section class="card"><div class="title"><div><h2>Analysis method</h2><p class="sub">PASS/FAIL uses the selected method's limits.</p></div></div>
+<div class="method-grid">
+<label class="method active"><input type="radio" name="method" value="worst" checked><span><b>Worst Case</b><small>Maximum possible variation.</small></span></label>
+<label class="method"><input type="radio" name="method" value="rss"><span><b>RSS</b><small>Statistical root-sum-square limits.</small></span></label>
+</div></section>
+</section>
+
+<section class="card"><div class="title"><div><h2>Target / Functional Requirement</h2><p class="sub">The selected analysis must stay completely within these limits to PASS.</p></div></div>
+<div class="target-grid"><label>Target nominal<input id="tn" type="number" step="any" value="60"></label><label>+ Target tolerance<input id="tp" type="number" step="any" value="0.30"></label><label>− Target tolerance<input id="tm" type="number" step="any" value="0.30"></label></div></section>
+
+<section class="results">
+<div class="result"><span>Stack nominal</span><strong id="rNom">0.000</strong></div>
+<div class="result"><span>Worst Case limits</span><strong id="rWC">—</strong></div>
+<div class="result"><span>RSS limits</span><strong id="rRSS">—</strong></div>
+<div class="result"><span>RSS failure percentage</span><strong id="rFail">—</strong></div>
+<div id="status" class="result status"><span>Selected method</span><strong id="rStatus">—</strong></div>
+</section>
+
+<section class="card"><div class="title"><div><h2>Statistical distribution</h2><p class="sub">Target values and both analysis-limit sets are marked on the horizontal axis.</p></div></div>
+<canvas id="bell"></canvas></section>
+
+<section class="card"><div class="title"><div><h2>Analysis summary</h2><p class="sub">Key comparison between Worst Case and RSS.</p></div></div>
+<div class="metrics">
+<div class="metric"><span>Worst Case tolerance</span><strong id="mWC">—</strong></div>
+<div class="metric"><span>RSS tolerance (±3σ)</span><strong id="mRSS">—</strong></div>
+<div class="metric"><span>WC-RSS limit reduction</span><strong id="mDiff">—</strong></div>
+<div class="metric"><span>Target minimum / maximum</span><strong id="mTarget">—</strong></div>
+<div class="metric"><span>RSS failure percentage</span><strong id="mFailPct">—</strong></div>
+<div class="metric"><span>RSS failure PPM</span><strong id="mPPM">—</strong></div>
+<div class="metric"><span>OK parts</span><strong id="mOK">—</strong></div>
+</div></section>
+</main>
+<footer>Tolerance Stack-Up Calculator • Engineering analysis tool</footer>
+<script>
+(()=>{"use strict";
+const tbody=document.getElementById("tbody"), addBtn=document.getElementById("addBtn"), resetBtn=document.getElementById("resetBtn");let count=0;
+const fmt=x=>{if(!Number.isFinite(x))return "—";let s=Number(x).toFixed(3).replace(/\.?0+$/,"" );if(s==="-0")s="0";if(s.startsWith("."))s="0"+s;if(s.startsWith("-."))s=s.replace("-.","-0.");return s;};
+function addRow(d={}){count++;let tr=document.createElement("tr");tr.innerHTML=`<td class="num"></td><td><input class="desc" value="${d.desc||"Dimension "+count}"></td><td><input class="nom" type="number" step="any" value="${d.nom??""}"></td><td><input class="plus" type="number" min="0" step="any" value="${d.plus??""}"></td><td><input class="minus" type="number" min="0" step="any" value="${d.minus??""}"></td><td><select class="dir"><option value="1">+</option><option value="-1">−</option></select></td><td><button class="remove" type="button">✕</button></td>`;tr.querySelector(".dir").value=d.dir===-1?"-1":"1";tbody.appendChild(tr);tr.querySelectorAll("input,select").forEach(e=>e.addEventListener("input",calculate));attachNumberFormatting();tr.querySelector(".remove").addEventListener("click",()=>{tr.remove();renumber();calculate()});renumber();calculate()}
+function renumber(){[...tbody.rows].forEach((r,i)=>r.querySelector(".num").textContent=i+1)}
+function rows(){return [...tbody.rows].map((r,i)=>({desc:r.querySelector(".desc").value||"Dimension "+(i+1),nom:+r.querySelector(".nom").value||0,plus:Math.abs(+r.querySelector(".plus").value||0),minus:Math.abs(+r.querySelector(".minus").value||0),dir:+r.querySelector(".dir").value}))}
+function normalizeNumberInput(el){if(el.value.trim()==="")return;let n=Number(el.value);if(!Number.isFinite(n))return;el.value=fmt(n)}
+function attachNumberFormatting(){document.querySelectorAll('input[type="number"]').forEach(el=>{if(el.dataset.formatAttached)return;el.dataset.formatAttached="1";el.addEventListener("blur",()=>normalizeNumberInput(el));})}
+function erf(x){let s=x<0?-1:1;x=Math.abs(x);let a1=.254829592,a2=-.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=.3275911,t=1/(1+p*x);return s*(1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x))}
+function cdf(z){return .5*(1+erf(z/Math.SQRT2))}
+function calculate(){
+ const rs=rows(), method=document.querySelector('input[name="method"]:checked').value;
+ let nominal=0,wPlus=0,wMinus=0,rp2=0,rm2=0;
+ rs.forEach(r=>{nominal+=r.dir*r.nom;let up=r.dir>0?r.plus:r.minus,lo=r.dir>0?r.minus:r.plus;wPlus+=up;wMinus+=lo;rp2+=up*up;rm2+=lo*lo});
+ const wcMin=nominal-wMinus,wcMax=nominal+wPlus,rp=Math.sqrt(rp2),rm=Math.sqrt(rm2),rssMin=nominal-rm,rssMax=nominal+rp;
+ document.getElementById("rNom").textContent=fmt(nominal);document.getElementById("rWC").textContent=fmt(wcMin)+" / "+fmt(wcMax);document.getElementById("rRSS").textContent=fmt(rssMin)+" / "+fmt(rssMax);
+ const wcTol=(wPlus+wMinus)/2,rssTol=(rp+rm)/2,diff=wcTol?100*(wcTol-rssTol)/wcTol:0;
+ document.getElementById("mWC").textContent="+"+fmt(wPlus)+" / −"+fmt(wMinus);document.getElementById("mRSS").textContent="±"+fmt(rssTol);document.getElementById("mDiff").textContent=fmt(diff)+"%"; 
+ const hasTarget=document.getElementById("tn").value!=="",tn=+document.getElementById("tn").value||0,tp=Math.abs(+document.getElementById("tp").value||0),tm=Math.abs(+document.getElementById("tm").value||0),tmin=tn-tm,tmax=tn+tp;
+ document.getElementById("mTarget").textContent=hasTarget?fmt(tmin)+" / "+fmt(tmax):"—";
+ // PASS/FAIL: selected method limits must both lie within target min/max.
+ const selectedMin=method==="worst"?wcMin:rssMin,selectedMax=method==="worst"?wcMax:rssMax;
+ const pass=hasTarget && selectedMin>=tmin && selectedMax<=tmax;
+ const status=document.getElementById("status");status.classList.remove("pass","fail");document.getElementById("rStatus").textContent=hasTarget?(pass?"PASS":"FAIL"):"—";if(hasTarget)status.classList.add(pass?"pass":"fail");
+ // Failure probability from RSS, using asymmetric ±3sigma limits.
+ let failPct=0,ppm=0;
+ if(hasTarget && (rp>0||rm>0)){
+   const sigmaP=rp/3||1e-12,sigmaM=rm/3||1e-12;
+   const lowProb=tmin<nominal?cdf((tmin-nominal)/sigmaM):0;
+   const highProb=tmax>nominal?1-cdf((tmax-nominal)/sigmaP):1;
+   // If target excludes the mean, account for the whole corresponding tail behavior.
+   failPct=(Math.max(0,lowProb)+Math.max(0,highProb))*100;ppm=failPct*10000;
+ }
+ document.getElementById("rFail").textContent=hasTarget?failPct.toFixed(3)+"%":"—";document.getElementById("mFailPct").textContent=hasTarget?failPct.toFixed(3)+"%":"—";document.getElementById("mPPM").textContent=hasTarget?Math.round(ppm).toLocaleString():"—";document.getElementById("mOK").textContent=hasTarget?Math.max(0,100-failPct).toFixed(3)+"%":"—";
+ // contributions
+ const cs=rs.map(r=>({...r,c:Math.sqrt((r.plus*r.plus+r.minus*r.minus)/2)})).sort((a,b)=>b.c-a.c),tot=Math.sqrt(cs.reduce((s,r)=>s+r.c*r.c,0));let box=document.getElementById("contributions");box.innerHTML="";
+ if(!cs.length||!tot)box.innerHTML='<div class="hint">Enter tolerances to see contribution.</div>';else cs.forEach(r=>{let p=100*r.c/tot,e=document.createElement("div");e.className="contribution-row";e.innerHTML=`<div>${r.desc.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]))}</div><div class="bar"><div style="width:${p}%"></div></div><strong>${p.toFixed(1)}%</strong>`;box.appendChild(e)});
+ drawBell(nominal,rp,rm,wcMin,wcMax,rssMin,rssMax,hasTarget?tn:null,hasTarget?tmin:null,hasTarget?tmax:null)
+}
+function canvasSetup(cv){let d=devicePixelRatio||1,r=cv.getBoundingClientRect(),w=r.width,h=r.height;cv.width=w*d;cv.height=h*d;let c=cv.getContext("2d");c.setTransform(d,0,0,d,0,0);return[c,w,h]}
+function drawBell(mean,rp,rm,wmin,wmax,rmin,rmax,tn,tmin,tmax){
+ const [c,w,h]=canvasSetup(document.getElementById("bell"));c.clearRect(0,0,w,h);
+ let vals=[wmin,wmax,rmin,rmax,mean];if(tn!==null)vals.push(tn,tmin,tmax);let lo=Math.min(...vals),hi=Math.max(...vals),range=hi-lo||1,pad=range*.18;lo-=pad;hi+=pad;
+ const L=55,R=w-25,T=78,B=h-78,pw=R-L,x=v=>L+(v-lo)/(hi-lo)*pw;
+ const sigma=Math.max((rp+rm)/6,range/1000000),peak=1/(sigma*Math.sqrt(2*Math.PI)),yv=y=>B-(y/peak)*(B-T)*.72;
+ c.beginPath();c.moveTo(x(lo),B);for(let i=0;i<=600;i++){let xx=lo+(hi-lo)*i/600,yy=Math.exp(-.5*((xx-mean)/sigma)**2)/(sigma*Math.sqrt(2*Math.PI));c.lineTo(x(xx),yv(yy))}c.lineTo(x(hi),B);c.closePath();c.fillStyle="#91cf5b";c.fill();
+ c.beginPath();for(let i=0;i<=600;i++){let xx=lo+(hi-lo)*i/600,yy=Math.exp(-.5*((xx-mean)/sigma)**2)/(sigma*Math.sqrt(2*Math.PI));i?c.lineTo(x(xx),yv(yy)):c.moveTo(x(xx),yv(yy))}c.strokeStyle="#67a43a";c.lineWidth=2;c.stroke();
+ c.strokeStyle="#68778b";c.lineWidth=1;c.beginPath();c.moveTo(L,B);c.lineTo(R,B);c.stroke();
+ // Fixed color lanes: every marker of the same color is always on the same level.
+ const groups=[
+   {color:"#b87316",label:"RSS",items:[[rmin,"RSS min"],[rmax,"RSS max"]],top:24,bottom:22},
+   {color:"#a06be8",label:"WC",items:[[wmin,"WC min"],[wmax,"WC max"]],top:42,bottom:40},
+   {color:"#4f9cff",label:"Target",items:tn!==null?[[tmin,"Target min"],[tn,"Target nominal"],[tmax,"Target max"]]:[],top:60,bottom:58}
+ ];
+ // nominal is deliberately on its own level to prevent center overlap.
+ c.strokeStyle="#8f9bad";c.lineWidth=1.5;c.setLineDash([4,4]);c.beginPath();c.moveTo(x(mean),T);c.lineTo(x(mean),B);c.stroke();c.setLineDash([]);
+ c.fillStyle="#d0d7e2";c.font="11px Segoe UI";c.textAlign="center";c.fillText("Nominal / μ",x(mean),15);
+ const placed=[];
+ groups.forEach(g=>{
+   const items=g.items.map(([v,label])=>({v,label,color:g.color,top:g.top,bottom:g.bottom})).sort((a,b)=>a.v-b.v);
+   // Keep same-color items on the same level. If values are close, spread their text boxes horizontally while keeping vertical lines exact.
+   const boxes=[];const minGap=58;
+   items.forEach((it,i)=>{
+     const xx=x(it.v), txt=fmt(it.v), width=Math.max(42,txt.length*6.4+8), labelW=Math.max(58,it.label.length*6.2+8);
+     let tx=xx;
+     if(i>0){const prev=boxes[i-1];if(tx-width/2 < prev.tx+prev.width/2+minGap)tx=prev.tx+prev.width/2+minGap+width/2;}
+     if(tx+width/2>R)tx=R-width/2;if(tx-width/2<L)tx=L+width/2;
+     boxes.push({tx,width});
+     c.strokeStyle=it.color;c.lineWidth=1.4;c.setLineDash([5,4]);c.beginPath();c.moveTo(xx,T);c.lineTo(xx,B);c.stroke();c.setLineDash([]);
+     c.fillStyle=it.color;c.font="11px Segoe UI";c.textAlign="center";c.fillText(it.label,tx,it.top);c.fillText(txt,tx,B+it.bottom);
+   });
+ });
+ // Tick marks only; no vertical-axis values and no legend.
+ c.strokeStyle="#77859a";c.lineWidth=1;c.fillStyle="#93a0b2";c.font="10px Segoe UI";for(let i=0;i<=6;i++){let v=lo+(hi-lo)*i/6,xx=x(v);c.beginPath();c.moveTo(xx,B);c.lineTo(xx,B+5);c.stroke();}
+}
+document.querySelectorAll('input[name="method"]').forEach(e=>e.addEventListener("change",()=>{document.querySelectorAll(".method").forEach(m=>m.classList.remove("active"));e.closest(".method").classList.add("active");calculate()}));
+["tn","tp","tm"].forEach(id=>document.getElementById(id).addEventListener("input",calculate));
+addBtn.addEventListener("click",()=>addRow());resetBtn.addEventListener("click",()=>{tbody.innerHTML="";count=0;addRow({desc:"Dimension A",nom:50,plus:.2,minus:.2});addRow({desc:"Dimension B",nom:20,plus:.1,minus:.1});addRow({desc:"Dimension C",nom:10,plus:.05,minus:.05,dir:-1})});addEventListener("resize",calculate);
+addRow({desc:"Dimension A",nom:50,plus:.2,minus:.2});addRow({desc:"Dimension B",nom:20,plus:.1,minus:.1});addRow({desc:"Dimension C",nom:10,plus:.05,minus:.05,dir:-1});attachNumberFormatting();
+})();
+</script>
+</body></html>
